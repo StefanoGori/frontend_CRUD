@@ -1,106 +1,249 @@
-var data = [
-    {
-        "id": 10001,
-        "birthDate": "1953-09-01",
-        "firstName": "Georgi",
-        "lastName": "Facello",
-        "gender": "M",
-        "hireDate": "1986-06-25",
-    },
-    {
-        "id": 10002,
-        "birthDate": "1964-06-01",
-        "firstName": "Bezalel",
-        "lastName": "Simmel",
-        "gender": "F",
-        "hireDate": "1985-11-20",
-    },
-    {
-        "id": 10003,
-        "birthDate": "1959-12-02",
-        "firstName": "Parto",
-        "lastName": "Bamford",
-        "gender": "M",
-        "hireDate": "1986-08-27T22:00:00.000+0000",
-    },
-    {
-        "id": 10004,
-        "birthDate": "1954-04-30",
-        "firstName": "Chirstian",
-        "lastName": "Koblick",
-        "gender": "M",
-        "hireDate": "1986-11-30",
+var page;
+var lastPage;
+var size = 20; //quanti elementi vedere per pagina
+var first;
+var last;
+var prev;
+var next;
+var id;
+var nextId;
+var btnModifica = "<button class='btn btn-primary ms-5 modifica' data-bs-toggle='modal' data-bs-target='#modaleM'>Modifica</button>";
+var btnElimina = "<button class='btn btn-danger elimina'>Elimina</button>";
 
-    },
-    {
-        "id": 10005,
-        "birthDate": "1955-01-20",
-        "firstName": "Kyoichi",
-        "lastName": "Maliniak",
-        "gender": "M",
-        "hireDate": "1989-09-11T22:00:00.000+0000",
-
+function nPage() {
+    $("#current-page").html(page+1);
+    if (page == 0) {
+        $("#first").parent().addClass("disabled");
+        $("#prev").parent().addClass("disabled");
+        $("#next").parent().removeClass("disabled");
+        $("#last").parent().removeClass("disabled");
+    } else if (page == lastPage) {
+        $("#first").parent().removeClass("disabled");
+        $("#prev").parent().removeClass("disabled");
+        $("#next").parent().addClass("disabled");
+        $("#last").parent().addClass("disabled");
+    } else {
+        $("#first").parent().removeClass("disabled");
+        $("#prev").parent().removeClass("disabled");
+        $("#next").parent().removeClass("disabled");
+        $("#last").parent().removeClass("disabled");
     }
-]
-var nextId = 10006;
-var btnElimina = "<button class='btn btn-danger elimina'>Elimina</button>"
-var btnModifica="<button type='button' class='btn btn-warning modifica'data-bs-toggle='modal' data-bs-target='#modaleM'>Modifica</button>"
+}
+
 //una volta che la pagina viene caricata, vengono inseriti gli elementi nella tabella
 $(document).ready(
-    displayTable(),
-    aggiungi(),
-    elimina(),
-    modifica(),
+    $.get("http://localhost:8080/employees?size=" + size,
+        function (data) {
+            console.log(data);
+            page = data["page"]["number"];
+            lastPage = data["page"]["totalPages"] - 1;
+            nextId = data["page"]["totalElements"] + 199976;
+            next = data["_links"]["next"]["href"];
+            if (page > 0) {
+                prev = data["_links"]["prev"]["href"];
+            }
+            first = data["_links"]["first"]["href"];
+            last = data["_links"]["last"]["href"];
+            displayTable(data['_embedded']['employees']);
+            nPage();
+        },
+    )
 );
 
-//https://www.geeksforgeeks.org/how-to-fetch-data-from-json-file-and-display-in-html-table-using-jquery/
-function displayTable() {
+function displayTable(data) {
     var dipendente;
+
+    $("tbody").html("");
 
     $.each(data, function (i, value) {
         dipendente += '<tr>';
         dipendente += '<th scope="row">' + value.id + '</th>';
-        dipendente += '<td>' + value.firstName + '</td>';
-        dipendente += '<td>' + value.lastName + '</td>';
-        dipendente += '<td>' + btnElimina + '</td>';
-        dipendente += '<td>' + btnModifica + '</td>';
+        dipendente += '<td id="first-name">' + value.firstName + '</td>';
+        dipendente += '<td id="last-name">' + value.lastName + '</td>';
+        dipendente += '<td data-id=' + value.id + '>' + btnElimina + btnModifica + '</td>';
         dipendente += '</tr>';
     });
+
+    $("#loading").addClass("d-none");
+
+    $("#pagination").removeClass("d-none");
+
     $("tbody").append(dipendente);
-}
 
-function aggiungi() {
-    $("#aggiungi").click(function () {
-        var dipendente;
-        var nome = $("#nome").val();
-        var cognome = $("#cognome").val();
-
-        dipendente += '<tr>';
-        dipendente += '<th scope="row">' + nextId + '</th>';
-        dipendente += '<td>' + nome + '</td>';
-        dipendente += '<td>' + cognome + '</td>';
-        dipendente += '<td>' + btnElimina + '</td>';
-        dipendente += '<td>' + btnModifica + '</td>'
-        dipendente += '</tr>';
-
-        $("tbody").append(dipendente);
-
-        nextId++;
-
-        elimina();
-    });
-}
-
-function elimina() {
     $(".elimina").click(function () {
-        $(this).parents("tr").fadeOut("fast");
+        var id = $(this).parent().data("id");
+
+        $.ajax({
+            type: "DELETE",
+            url: "http://localhost:8080/employees/" + id,
+            dataType: "json",
+            success: function () {
+                $("#loading").removeClass("d-none");
+                $("tbody").html("");
+                $.get("http://localhost:8080/employees?page=" + page,
+                    function (data) {
+                        lastPage = data["page"]["totalPages"] - 1;
+                        displayTable(data['_embedded']['employees']);
+                    },
+                );
+            }
+        });
+    });
+
+    $(".modifica").click(function () {
+        id = $(this).parent().data("id");
+
+        $("#nome-m").val($(this).parent().siblings("#first-name").html());
+        $("#cognome-m").val($(this).parent().siblings("#last-name").html());
     });
 }
 
-function modifica(){
-    $("#modifica").click(function(){
-        var dipendente;
-        var nome=$("#nome").val();
-        var cognome=$("#cognome").val();
-    })
-}
+$("#next").click(function () {
+    $("#loading").removeClass("d-none");
+    $("tbody").html("");
+    $.get(next,
+        function (data) {
+            displayTable(data['_embedded']['employees']);
+            page = data["page"]["number"];
+            if (page < lastPage) {
+                next = data["_links"]["next"]["href"];
+            }
+            prev = data["_links"]["prev"]["href"];
+            nPage();
+        },
+    );
+});
+
+$("#prev").click(function () {
+    $("#loading").removeClass("d-none");
+    $("tbody").html("");
+    $.get(prev,
+        function (data) {
+            displayTable(data['_embedded']['employees']);
+            page = data["page"]["number"];
+            next = data["_links"]["next"]["href"];
+            if (page > 0) {
+                prev = data["_links"]["prev"]["href"];
+            }
+            nPage();
+        },
+    );
+});
+
+$("#first").click(function () {
+    $("#loading").removeClass("d-none");
+    $("tbody").html("");
+    $.get(first,
+        function (data) {
+            displayTable(data['_embedded']['employees']);
+            page = data["page"]["number"];
+            next = data["_links"]["next"]["href"];
+            nPage();
+            $("#first").parent().addClass("disabled");
+            $("#prev").parent().addClass("disabled");
+            $("#next").parent().removeClass("disabled");
+            $("#last").parent().removeClass("disabled");
+        },
+    );
+});
+
+$("#last").click(function () {
+    $("#loading").removeClass("d-none");
+    $("tbody").html("");
+    $.get(last,
+        function (data) {
+            displayTable(data['_embedded']['employees']);
+            page = data["page"]["number"];
+            prev = data["_links"]["prev"]["href"];
+            nPage();
+            $("#first").parent().removeClass("disabled");
+            $("#prev").parent().removeClass("disabled");
+            $("#next").parent().addClass("disabled");
+            $("#last").parent().addClass("disabled");
+        },
+    );
+});
+
+$("#aggiungi").click(function () {
+    var nome = $("#nome").val();
+    var cognome = $("#cognome").val();
+
+    $("#nome").val("");
+    $("#cognome").val("");
+
+    //posto il nuovo dipendente al server
+    $.ajax({
+        type: 'POST',
+        url: 'http://localhost:8080/employees',
+        data: JSON.stringify({
+            birthDate: "",
+            firstName: nome,
+            lastName: cognome,
+            gender: "M",
+            hireDate: ""
+        }),
+        success: function () {
+            nextId++;
+            $("#loading").removeClass("d-none");
+            $("tbody").html("");
+            $.get(last,
+                function (data) {
+                    displayTable(data['_embedded']['employees']);
+                    page = data["page"]["number"];
+                    prev = data["_links"]["prev"]["href"];
+                    nPage();
+                    $("#first").parent().removeClass("disabled");
+                    $("#prev").parent().removeClass("disabled");
+                    $("#next").parent().addClass("disabled");
+                    $("#last").parent().addClass("disabled");
+                },
+            );
+        },
+        contentType: "application/json",
+        dataType: 'json'
+    });
+});
+
+$("#modifica").click(function () {
+    var nome = $("#nome-m").val();
+    var cognome = $("#cognome-m").val();
+
+    $.ajax({
+        type: "PATCH",
+        url: "http://localhost:8080/employees/" + id,
+        data: JSON.stringify({
+            firstName: nome,
+            lastName: cognome
+        }),
+        dataType: "json",
+        contentType: "application/json",
+        success: function () {
+            $("#loading").removeClass("d-none");
+            $("tbody").html("");
+            $.get("http://localhost:8080/employees?page=" + page,
+                function (data) {
+                    displayTable(data['_embedded']['employees']);
+                },
+            );
+        }
+    });
+
+    $(".elimina").click(function () {
+        var id = $(this).parent().data("id");
+
+        $.ajax({
+            type: "DELETE",
+            url: "http://localhost:8080/employees/" + id,
+            dataType: "json",
+            success: function () {
+                $("#loading").removeClass("d-none");
+                $("tbody").html("");
+                $.get("http://localhost:8080/employees?page=" + page,
+                    function (data) {
+                        displayTable(data['_embedded']['employees']);
+                    },
+                );
+            }
+        });
+    });
+});
