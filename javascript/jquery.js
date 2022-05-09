@@ -180,7 +180,7 @@ $("#aggiungi").click(function () {
             firstName: nome,
             lastName: cognome,
             gender: "M",
-            hireDate: ""
+            hireDate: "",
         }),
         success: function () {
             nextId++;
@@ -209,7 +209,7 @@ $("#modifica").click(function () {
     var cognome = $("#cognome-m").val();
 
     $.ajax({
-        type: "PATCH",
+        type: 'PATCH',
         url: "http://localhost:8080/employees/" + id,
         data: JSON.stringify({
             firstName: nome,
